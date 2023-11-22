@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DEMO2</title>
+    <script src="epz.min.js"></script>
+</head>
+<body>
+<script>
+!(function(){
+    var xhr = new XMLHttpRequest()
+    xhr.open("GET","1.epz",true)
+    xhr.responseType ="arraybuffer"
+    xhr.onload = function(){
+        var epz = new EPZ(new Uint8Array(xhr.response));
+        epz.init(function(){
+            function check(e) {
+                return e && !/^(data|blob|ws|wss):/.test(e) && hashfilename(e).indexOf("http")
+            }
+            function decompress(a) {
+                return a;
+            }
+            XMLHttpRequest.prototype._open = XMLHttpRequest.prototype.open
+            XMLHttpRequest.prototype._send = XMLHttpRequest.prototype.send
+            var element = document.createElement('a');
+            var cache = {};
+            var scriptcache = {};
+            function getURL(e) {
+                element.href = e;
+                return element.href
+            }
+            var base = getURL(".");
+            function hashfilename(t) {
+                var r = getURL(t).replace(base, "").toLowerCase().replace(/[#|?][^]*$/, "").replace(/%(?![a-z0-9]{2})/g, "%25");
+                return decodeURIComponent(r);
+            }
+            var hexfile = hashfilename;
+            var obj = {}
+            for(var i = 0;i<epz.arr.length;i++){
+                obj[hashfilename(epz.arr[i].filename)] = i;
+            }
+
+            function requestSync(t) {
+                var o = hexfile(t);
+                if (cache[o]) return cache[o];
+                if(obj[o]==null) return ""
+                cache[o] = URL.createObjectURL(epz.blob(obj[o]));
+                scriptcache[cache[o]] = t;
+                return cache[o];
+            }
+            function request(t, fn, err) {
+                var o = hexfile(t);
+                if (cache[o]) {
+                    if (!scriptcache[cache[o]]) scriptcache[cache[o]] = t;
+                    return fn(cache[o]);
+                }
+                if(obj[o]==null) return err()
+                epz.blob(obj[o],function(e){
+                    cache[o] = URL.createObjectURL(e);
+                    scriptcache[cache[o]] = t;
+                    fn(cache[o]);
+                })
+        
+            }
+            XMLHttpRequest.prototype.open = function (m, u, a) {
+                if (u == "" || hashfilename(u) == "") u = "index.html"
+                if (check(u) && m != "POST") {
+                    this._param = [m, u, a == false];
+                } else {
+                    this._open.apply(this, arguments);
+                }
+            }
+            XMLHttpRequest.prototype.send = function (msg) {
+                var that = this;
+                if (!this._param) {
+                    return this._send(msg);
+                }
+                var method = this._param[0];
+                var url = this._param[1];
+                var async = this._param[2];
+                if (async) {
+                    this._open(method, requestSync(url), false);
+                    this._send(msg);
+                } else {
+                    request(url, function (e) {
+                        that._open(method, e);
+                        that._send(msg);
+                    }, function (e, a) {
+                        if (e == 0) { that.ontimeout && that.ontimeout(a) }
+                        if (e == 1) { that.onabort && that.onabort(a) }
+                        if (e == 2) { that.onerror && that.onerror(a) }
+                        if (e == 3) { 
+                            that._open(method, ":*|?");
+                            that._send(msg);
+                        }
+                    })
+                }
+            }
+            if (typeof fetch === 'function') {
+                var _fetch = fetch;
+                fetch = function (url, param) {
+                    if (typeof url === 'object') return _fetch(url);
+                    if (url == "" || getFileName(url) == "") url = "index.html"
+                    if (check(url)) {
+                        return new Promise(function (res, rej) {
+                            request(url, function (e) {
+                                return res(_fetch(e));
+                            }, function () {
+                                return rej(err);
+                            })
+                        })
+                    } else {
+                        return _fetch(url, param);
+                    }
+                }
+            }
+            function proxyResource(a) {
+                var that = this;
+                if (check(a)) {
+                    var o = hexfile(a)
+                    if (cache[o]) return that.setAttribute('src', cache[o]);
+                    request(a, function (e) {
+                        that.setAttribute('src', e);
+                    })
+                } else {
+                    that.setAttribute('src', a);
+                }
+            }
+            Object.defineProperties(Image.prototype, {
+                src: {
+                    get: function () {
+                        return this.getAttribute('src') || ""
+                    },
+                    set: proxyResource
+                }
+            })
+            Object.defineProperties(Audio.prototype, {
+                src: {
+                    get: function () {
+                        return this.getAttribute('src') || ""
+                    },
+                    set: proxyResource
+                }
+            })
+            Object.defineProperties(HTMLScriptElement.prototype, {
+                src: {
+                    get: function () {
+                        var o = this.getAttribute('src')
+                        if (scriptcache[o]) return scriptcache[o]
+                        return o || ""
+                    }
+                },
+                _src: {
+                    get: function () {
+                        return this.getAttribute('src') || "";
+                    },
+                    set: function (a) {
+                        this.setAttribute('src', a);
+                    }
+                }
+            })
+            epz.text("index.html",function(res){
+                var html = document.createElement('html');
+                html.innerHTML = res;
+                var scripts = html.querySelectorAll('script');
+                for (var i = 0; i < scripts.length; i++) {
+                    if (check(scripts[i]._src)) {
+                        scripts[i]._src = requestSync(scripts[i]._src);
+                    }
+                }
+                var img = html.querySelectorAll('img');
+                for (var i = 0; i < img.length; i++) {
+                    if (check(img[i].src)) {
+                        img[i].setAttribute('src', requestSync(img[i].src))
+                    }
+                }
+                var audio = html.querySelectorAll('audio');
+                for (var i = 0; i < audio.length; i++) {
+                    if (check(audio[i].src)) {
+                        audio[i].setAttribute('src', requestSync(audio[i].src))
+                    }
+                }
+                var __appendChild = Node.prototype.appendChild;
+                Node.prototype.appendChild = function (e) {
+                    if (this === document.body && e && e.nodeName == 'SCRIPT' && check(e._src)) {
+                        if (e.async === false) {
+                            e._src = requestSync(e._src);
+                            __appendChild.call(this, e);
+                        } else {
+                            request(e._src, function (k) {
+                                e._src = k;
+                                __appendChild.call(document.body, e);
+                            }, function () {
+                                __appendChild.call(document.body, e);
+                            })
+                        }
+                        return e;
+                    } else {
+                        return __appendChild.call(this, e);
+                    }
+                }
+                document.open();
+                document.write("<!DOCTYPE html>" + html.outerHTML);
+                document.close();
+            })
+        })
+    }
+    xhr.send()
+})()
+    </script>
+</body>
+</html>
