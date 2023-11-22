@@ -1,6 +1,7 @@
 # epz.js
 https://github.com/axutebils74/EPZ
 # 使用方法
+```
 var a = new EPZ( epzfile, [sync])
 a.init([fn])
 a.uint8(name,[fn])
@@ -9,6 +10,7 @@ a.text(name,[fn])
 a.blob(name,[fn])
 a.base64(name,[fn])
 a.arraybuffer(name,[fn])
+```
 # epzfile 
 自动监测类型可以是 
 base64，arraybuffer，uint8array，array，string，blob，url，bloburl
