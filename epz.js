@@ -12,7 +12,7 @@ var EPZ = (function(){
     var util = {
         decodeString:function(s){
             var  b = new Uint8Array(s.length);
-            for (i = 0; i < s.length; i++) b[i] = s.charCodeAt(i);
+            for (var i = 0; i < s.length; i++) b[i] = s.charCodeAt(i);
             return b
         },
         decodeBase64:function(s){
