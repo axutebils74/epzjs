@@ -13,6 +13,7 @@ var EPZ = (function(){
         decodeString:function(s){
             var  b = new Uint8Array(s.length);
             for (i = 0; i < s.length; i++) b[i] = s.charCodeAt(i);
+            return b
         },
         decodeBase64:function(s){
             return this.decodeString(atob(s));
@@ -49,7 +50,7 @@ var EPZ = (function(){
             xhr.send()
         },
         toArr:function(u){
-            return Array.prototype.slice.call(u);
+            for(var n=0,t=u.length,e=new Array(t);n<t;n++)e[n]=u[n];return e
         },
         toBlob:function(u){
             return  new Blob([u]);
