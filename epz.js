@@ -309,7 +309,7 @@ var EPZ = (function(){
             var n;
             if(!prop.len){
                 if(!epz.length){epz.length = epz.getLength()} 
-                var r = new DataView(epz._read(k.length-4,k.length).buffer);
+                var r = new DataView(epz._read(epz.length-4,epz.length).buffer);
                 prop.len = r.getUint32(0);
                 n = epz._read(4,4 + prop.len);
             }else{
